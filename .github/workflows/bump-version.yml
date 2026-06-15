@@ -1,0 +1,65 @@
+name: Bump Zen Browser Formula Daily
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  homebrew-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Check for updates and automatically update Formula
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT_VER=$(grep -oP 'version_str = "\K[^"]+' Formula/zen-browser.rb)
+          echo "Current local version is: $CURRENT_VER"
+
+          LATEST_VER=$(curl --silent "https://api.github.com/repos/zen-browser/desktop/releases/latest" | jq -r .tag_name)
+          echo "Latest upstream version found: $LATEST_VER"
+
+          if [ "$CURRENT_VER" = "$LATEST_VER" ] || [ -z "$LATEST_VER" ] || [ "$LATEST_VER" = "null" ]; then
+            echo "Formula is already up to date with the latest Zen Browser release ($CURRENT_VER)."
+            exit 0
+          fi
+
+          echo "New version $LATEST_VER detected! Safely computing precise hashes..."
+
+          MAIN_URL="https://github.com/zen-browser/desktop/releases/download/${LATEST_VER}/zen.linux-x86_64.tar.xz"
+          META_URL="https://github.com/zen-browser/flatpak/releases/download/${LATEST_VER}/archive.tar"
+
+          curl -sL -o main_archive.tar.xz "$MAIN_URL"
+          MAIN_SHA=$(sha256sum main_archive.tar.xz | awk '{print $1}')
+
+          curl -sL -o meta_archive.tar "$META_URL"
+          META_SHA=$(sha256sum meta_archive.tar | awk '{print $1}')
+
+          echo "New Main Archive SHA: $MAIN_SHA"
+          echo "New Metadata Archive SHA: $META_SHA"
+
+          sed -i "s|version_str = \"${CURRENT_VER}\"|version_str = \"${LATEST_VER}\"|g" Formula/zen-browser.rb
+          sed -i "/^[[:space:]]*main_sha256 =/s/= \".*\"/= \"${MAIN_SHA}\"/" Formula/zen-browser.rb
+          sed -i "/^[[:space:]]*metadata_sha256 =/s/= \".*\"/= \"${META_SHA}\"/" Formula/zen-browser.rb
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Pushing custom sed-updated formula code to repository..."
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Formula/zen-browser.rb
+            git commit -m "zen-browser ${LATEST_VER}"
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+          else
+            echo "Error: Sed replacement pattern mismatch. No changes written."
+          fi
