@@ -5,9 +5,9 @@ class ZenBrowser < Formula
   desc "Welcome to a calmer internet"
   homepage "https://zen-browser.app"
   arch = Hardware::CPU.intel? ? "x86_64" : "aarch64"
-  version_str = "1.22b"
-  main_sha256 = "41e725c82a2bee91a351c5fe8f8771f8e2748c7f323ebbb0138dbeaae84afbb8"
-  metadata_sha256 = "002980b90c9ce1f0e426193414dc249c718c06b3156131117c1b4ef946d2e613"
+  version_str = "1.22.1b"
+  main_sha256 = "19d392340ac8afbfdae393259bfb9c4ba393844c77c7eee3fdbd858cd26028ae"
+  metadata_sha256 = "1f1d76028949ac6826ffcaca8b76ce1122794e717fa778c0fd10d0027cfcb26d"
   url "https://github.com/zen-browser/desktop/releases/download/#{version_str}/zen.linux-#{arch}.tar.xz"
   sha256 main_sha256
   license "MPL-2.0"
